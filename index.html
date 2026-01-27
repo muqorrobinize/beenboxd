@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BeenBoxd | Letterboxd Logger Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        lb: {
+                            dark: '#14181C',
+                            darker: '#0C0F12',
+                            gray: '#2C3440',
+                            light: '#99AABB',
+                            green: '#00E054',
+                            orange: '#FF8000',
+                            blue: '#40BCF4'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #14181C; /* LB Dark Background */
+            color: #99AABB;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0C0F12; }
+        ::-webkit-scrollbar-thumb { background: #2C3440; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #445566; }
+
+        /* Smooth Inputs */
+        .lb-input {
+            background: #2C3440;
+            border: 1px solid transparent;
+            color: #fff;
+            transition: all 0.2s ease;
+        }
+        .lb-input:focus {
+            background: #fff;
+            color: #14181C;
+            border-color: #fff;
+            outline: none;
+        }
+        .lb-input::placeholder { color: #667788; }
+
+        /* Button Effects */
+        .btn-hover-effect:active { transform: scale(0.98); }
+
+        /* Toast Notification */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            background: #fff;
+            color: #14181C;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transform: translateY(100%);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: auto;
+            border-left: 4px solid #00E054;
+            font-size: 0.875rem;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.error { border-left-color: #FF8000; }
+
+        /* Modal Styles */
+        .modal-backdrop {
+            background-color: rgba(12, 15, 18, 0.85);
+            backdrop-filter: blur(4px);
+        }
+
+        /* Mobile Card View overrides */
+        @media (max-width: 768px) {
+            .desktop-only { display: none; }
+            .mobile-card {
+                background: #1F262E;
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 12px;
+                border: 1px solid #2C3440;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center pb-20">
+
+    <!-- Navbar -->
+    <nav class="w-full bg-lb-darker border-b border-lb-gray/30 sticky top-0 z-40 backdrop-blur-md bg-opacity-90">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="flex gap-1">
+                    <div class="w-3 h-3 rounded-full bg-lb-green"></div>
+                    <div class="w-3 h-3 rounded-full bg-lb-orange"></div>
+                    <div class="w-3 h-3 rounded-full bg-lb-blue"></div>
+                </div>
+                <div class="flex flex-col justify-center ml-1">
+                    <h1 class="text-white font-bold tracking-tight text-lg leading-tight">Been<span class="text-lb-green">Boxd</span></h1>
+                    <div class="text-[8px] sm:text-[10px] text-lb-light font-mono -mt-0.5 opacity-80">
+                       by <a href="https://instagram.com/beenspace" target="_blank" class="hover:text-lb-green transition border-b border-transparent hover:border-lb-green">@beenspace</a> 
+                       <span class="opacity-50">/</span> 
+                       <a href="https://github.com/muqorrobinize" target="_blank" class="hover:text-lb-blue transition border-b border-transparent hover:border-lb-blue">B$4B3!N</a>
+                    </div>
+               </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="text-right hidden sm:block">
+                    <div class="text-[10px] uppercase tracking-wider font-bold text-lb-gray">Log Count</div>
+                    <div class="text-white font-mono font-bold" id="countDisplay">0</div>
+                </div>
+                <!-- Help Button -->
+                <button onclick="toggleHelpModal()" class="w-8 h-8 rounded-full bg-lb-gray hover:bg-lb-light text-white flex items-center justify-center transition btn-hover-effect" title="Panduan & Info">
+                    <span class="font-bold text-sm">?</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 modal-backdrop transition-opacity">
+        <div class="bg-lb-dark border border-lb-gray rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto flex flex-col">
+            
+            <!-- Modal Header -->
+            <div class="p-5 border-b border-lb-gray/50 flex justify-between items-center sticky top-0 bg-lb-dark z-10">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span class="text-lb-green">★</span> Panduan Pengguna
+                </h2>
+                <button onclick="toggleHelpModal()" class="text-lb-light hover:text-white transition">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6 space-y-6 text-sm text-lb-light">
+                
+                <!-- Description -->
+                <div>
+                    <h3 class="text-white font-bold uppercase text-xs tracking-wider mb-2">Tentang BeenBoxd</h3>
+                    <p class="leading-relaxed">
+                        BeenBoxd adalah alat produktivitas open-source untuk para <i>Movie Buff</i>. Aplikasi ini membantu Anda mencatat riwayat tontonan (diary) dengan cepat, melakukan validasi judul otomatis, dan menyiapkan file CSV yang 100% kompatibel dengan fitur <a href="https://letterboxd.com/import/" target="_blank" class="text-lb-blue hover:underline">Letterboxd Import</a>.
+                    </p>
+                </div>
+
+                <!-- Guide -->
+                <div>
+                    <h3 class="text-white font-bold uppercase text-xs tracking-wider mb-3">Cara Menggunakan</h3>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-lb-gray/30 p-3 rounded-lg border border-lb-gray/20">
+                            <strong class="text-white block mb-1">1. Mode Manual (Single Entry)</strong>
+                            <p class="text-xs opacity-80">Gunakan tab "Manual". Ketik judul film, lalu klik tombol <span class="bg-lb-blue/20 text-lb-blue px-1 rounded text-[10px] font-bold">AUTO</span> untuk membiarkan AI melengkapi tahun & tag secara otomatis.</p>
+                        </div>
+
+                        <div class="bg-lb-gray/30 p-3 rounded-lg border border-lb-gray/20">
+                            <strong class="text-white block mb-1">2. Mode AI Bulk (Banyak Sekaligus)</strong>
+                            <p class="text-xs opacity-80">Pindah ke tab "AI Bulk". Tempel (paste) daftar film kasar dari mana saja (misal: WhatsApp). Contoh instruksi:</p>
+                            <code class="block bg-black/30 p-2 mt-2 rounded text-[10px] font-mono text-lb-green">
+                                "Dune 2, Poor Things, The Bear Season 1. Kasih rating 4 semua, tag 'weekend'."
+                            </code>
+                            <p class="text-xs opacity-80 mt-2">Klik "Process with AI" dan biarkan sistem merapikannya.</p>
+                        </div>
+
+                        <div class="bg-lb-gray/30 p-3 rounded-lg border border-lb-gray/20">
+                            <strong class="text-white block mb-1">3. Ekspor ke Letterboxd</strong>
+                            <p class="text-xs opacity-80">Setelah daftar selesai, klik tombol <span class="text-white font-bold">EXPORT CSV</span>. File yang terunduh bisa langsung di-upload di halaman Import Letterboxd.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Info -->
+                <div class="pt-4 border-t border-lb-gray/50 text-[10px] text-center opacity-60">
+                    <p>Privasi: Data disimpan lokal di browser Anda. API Key dijaga oleh Server Vercel.</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="w-full max-w-5xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 mt-4">
+        
+        <!-- Left Panel: Input -->
+        <div class="lg:col-span-4 space-y-4">
+            
+            <!-- Tab Switcher -->
+            <div class="bg-lb-darker p-1 rounded-lg flex border border-lb-gray/50">
+                <button onclick="switchTab('manual')" id="tab-manual" class="flex-1 py-2 text-xs font-bold rounded shadow-sm bg-lb-gray text-white transition-all">MANUAL</button>
+                <button onclick="switchTab('ai')" id="tab-ai" class="flex-1 py-2 text-xs font-bold rounded text-lb-light hover:text-white transition-all flex items-center justify-center gap-1">
+                    AI BULK <span class="w-1.5 h-1.5 rounded-full bg-lb-green animate-pulse"></span>
+                </button>
+            </div>
+
+            <!-- MANUAL FORM -->
+            <div id="panel-manual" class="bg-lb-darker border border-lb-gray/30 rounded-xl p-5 shadow-lg">
+                <form id="logForm" class="space-y-4">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-lb-light mb-1.5">Movie Title</label>
+                        <div class="relative">
+                            <input type="text" id="title" class="lb-input w-full rounded px-3 py-2.5 text-sm font-medium" placeholder="Search or type..." autocomplete="off">
+                            <input type="hidden" id="lbSlug"> <!-- Hidden field for slug -->
+                            <button type="button" onclick="fetchSingleMovie()" class="absolute right-1 top-1 bottom-1 px-2.5 bg-lb-blue/10 text-lb-blue hover:bg-lb-blue hover:text-white rounded text-xs font-bold transition">AUTO</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-lb-light mb-1.5">Year</label>
+                            <input type="number" id="year" class="lb-input w-full rounded px-3 py-2.5 text-sm" placeholder="YYYY">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold uppercase text-lb-light mb-1.5">Rating (0-5)</label>
+                            <input type="number" id="rating" step="0.5" min="0" max="5" class="lb-input w-full rounded px-3 py-2.5 text-sm" placeholder="3.5">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-lb-light mb-1.5">Date Watched</label>
+                        <input type="date" id="date" class="lb-input w-full rounded px-3 py-2.5 text-sm text-gray-400">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-lb-light mb-1.5">Review</label>
+                        <textarea id="review" rows="3" class="lb-input w-full rounded px-3 py-2.5 text-sm resize-none" placeholder="Add a review..."></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-lb-light mb-1.5">Tags (comma separated)</label>
+                        <input type="text" id="tags" class="lb-input w-full rounded px-3 py-2.5 text-sm" placeholder="cinema, horror, 2024">
+                    </div>
+
+                    <button type="submit" class="w-full bg-lb-green hover:bg-[#00c048] text-lb-darker font-bold py-3 rounded text-sm transition btn-hover-effect">ADD TO LOG</button>
+                </form>
+            </div>
+
+            <!-- AI BULK FORM -->
+            <div id="panel-ai" class="hidden bg-lb-darker border border-lb-gray/30 rounded-xl p-5 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
+                    <svg width="100" height="100" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6a1 1 0 0 0-1 1v4.59l-3.29-3.3a1 1 0 0 0-1.42 1.42l5 5a1 1 0 0 0 1.42 0l5-5a1 1 0 0 0-1.42-1.42l-3.29 3.3V7a1 1 0 0 0-1-1z"/></svg>
+                </div>
+                
+                <div class="space-y-4 relative z-10">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase text-lb-light mb-1.5">Paste List & Instructions</label>
+                        <textarea id="bulkInput" rows="12" class="lb-input w-full rounded px-3 py-3 text-sm font-mono leading-relaxed" placeholder="Example:&#10;Dune Part Two&#10;Poor Things&#10;The Bear Season 1&#10;&#10;Rate them all 4 stars and add tag 'weekend'."></textarea>
+                    </div>
+
+                    <div class="flex items-end gap-3">
+                        <div class="flex-1">
+                            <label class="block text-[10px] font-bold uppercase text-lb-light mb-1.5">Default Date</label>
+                            <input type="date" id="bulkDate" class="lb-input w-full rounded px-2 py-2 text-xs">
+                        </div>
+                    </div>
+
+                    <button onclick="processSmartBulk()" id="btn-ai-process" class="w-full bg-gradient-to-r from-lb-blue to-purple-600 hover:opacity-90 text-white font-bold py-3 rounded text-sm transition btn-hover-effect flex items-center justify-center gap-2">
+                        <span>✨ PROCESS WITH AI</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: List -->
+        <div class="lg:col-span-8 flex flex-col h-full min-h-[500px]">
+            
+            <!-- Toolbar -->
+            <div class="flex justify-between items-center mb-4 bg-lb-darker p-3 rounded-lg border border-lb-gray/30">
+                <div class="flex items-center gap-2">
+                    <button onclick="clearList()" class="text-xs font-bold text-red-500 hover:text-red-400 px-3 py-1.5 rounded hover:bg-red-500/10 transition">CLEAR</button>
+                    <span class="text-[10px] text-lb-light hidden sm:inline">Auto-saved to browser</span>
+                </div>
+                <button onclick="downloadCSV()" class="bg-white text-lb-darker hover:bg-gray-200 font-bold text-xs px-4 py-2 rounded flex items-center gap-2 transition btn-hover-effect">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    EXPORT CSV
+                </button>
+            </div>
+
+            <!-- Data Display -->
+            <div class="bg-lb-darker border border-lb-gray/30 rounded-xl overflow-hidden flex-1 shadow-inner relative">
+                <!-- Loader Overlay -->
+                <div id="loader" class="absolute inset-0 bg-lb-darker/80 z-20 hidden flex-col items-center justify-center backdrop-blur-sm">
+                    <div class="w-8 h-8 border-2 border-lb-green border-t-transparent rounded-full animate-spin mb-3"></div>
+                    <div class="text-xs font-bold text-lb-green tracking-widest animate-pulse">PROCESSING...</div>
+                </div>
+
+                <!-- Desktop Table Header -->
+                <div class="hidden md:grid grid-cols-12 gap-4 p-3 border-b border-lb-gray/30 bg-lb-gray/20 text-[10px] font-bold uppercase text-lb-light tracking-wider">
+                    <div class="col-span-4">Title</div>
+                    <div class="col-span-1">Year</div>
+                    <div class="col-span-1">Rating</div>
+                    <div class="col-span-2">Date</div>
+                    <div class="col-span-3">Tags</div>
+                    <div class="col-span-1 text-right">Edit</div>
+                </div>
+
+                <!-- List Content -->
+                <div id="movieList" class="overflow-y-auto max-h-[800px] scrollbar-thin">
+                    <!-- Items injected here -->
+                    <div id="emptyState" class="flex flex-col items-center justify-center h-64 text-lb-gray">
+                        <svg class="w-12 h-12 mb-2 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        <p class="text-sm font-medium">Log is empty</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-3 text-center">
+                <p class="text-[10px] text-lb-light">
+                    Designed for <a href="https://letterboxd.com/import/" target="_blank" class="text-lb-green hover:underline">letterboxd.com/import</a>
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toasts -->
+    <div id="toast-container"></div>
+
+    <script>
+        // --- CONFIGURATION & STATE ---
+        let movies = [];
+        const toastContainer = document.getElementById('toast-container');
+        const countDisplay = document.getElementById('countDisplay');
+        const helpModal = document.getElementById('helpModal');
+        
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date').value = today;
+            document.getElementById('bulkDate').value = today;
+            loadFromLocal();
+        });
+
+        // --- UI UTILITIES ---
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'error' ? 'error' : ''}`;
+            toast.innerText = message;
+            toastContainer.appendChild(toast);
+            
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function toggleHelpModal() {
+            helpModal.classList.toggle('hidden');
+        }
+
+        // Close modal when clicking outside
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                toggleHelpModal();
+            }
+        });
+
+        function switchTab(tab) {
+            const btnManual = document.getElementById('tab-manual');
+            const btnAi = document.getElementById('tab-ai');
+            const panelManual = document.getElementById('panel-manual');
+            const panelAi = document.getElementById('panel-ai');
+
+            if(tab === 'manual') {
+                btnManual.classList.remove('bg-lb-gray', 'text-lb-light');
+                btnManual.classList.add('bg-lb-gray', 'text-white'); 
+                btnManual.style.background = '#2C3440';
+                btnManual.style.color = 'white';
+                
+                btnAi.style.background = 'transparent';
+                btnAi.style.color = '#99AABB';
+                
+                panelManual.classList.remove('hidden');
+                panelAi.classList.add('hidden');
+            } else {
+                btnAi.style.background = '#2C3440';
+                btnAi.style.color = 'white';
+                
+                btnManual.style.background = 'transparent';
+                btnManual.style.color = '#99AABB';
+
+                panelManual.classList.add('hidden');
+                panelAi.classList.remove('hidden');
+            }
+        }
+
+        // --- DATA MANAGEMENT ---
+        function loadFromLocal() {
+            const storedMovies = localStorage.getItem('beenboxd_movies_pro');
+            if (storedMovies) {
+                movies = JSON.parse(storedMovies);
+                render();
+            }
+        }
+
+        function saveToLocal() {
+            localStorage.setItem('beenboxd_movies_pro', JSON.stringify(movies));
+            render();
+        }
+
+        function addMovie(data) {
+            const movie = {
+                id: Date.now() + Math.random(),
+                ...data
+            };
+            movies.unshift(movie); 
+            saveToLocal();
+        }
+
+        function deleteMovie(id) {
+            movies = movies.filter(m => m.id !== id);
+            saveToLocal();
+            showToast('Entry removed', 'error');
+        }
+
+        function clearList() {
+            if(confirm('Are you sure you want to clear the entire list?')) {
+                movies = [];
+                saveToLocal();
+                showToast('List cleared');
+            }
+        }
+
+        // --- RENDERING (RESPONSIVE) ---
+        function render() {
+            countDisplay.innerText = movies.length;
+            const listEl = document.getElementById('movieList');
+            const emptyEl = document.getElementById('emptyState');
+
+            if (movies.length === 0) {
+                listEl.innerHTML = '';
+                listEl.appendChild(emptyEl);
+                return;
+            }
+
+            listEl.innerHTML = movies.map(m => `
+                <div class="group border-b border-lb-gray/20 hover:bg-white/5 transition-colors relative">
+                    
+                    <!-- Desktop Row -->
+                    <div class="hidden md:grid grid-cols-12 gap-4 p-3 items-center text-sm">
+                        <div class="col-span-4 font-bold text-white truncate flex items-center gap-2">
+                            <span title="${m.Title}">${m.Title}</span>
+                            ${m.LetterboxdSlug ? 
+                                `<a href="https://letterboxd.com/film/${m.LetterboxdSlug}" target="_blank" class="text-lb-blue hover:text-white transition-colors" title="View on Letterboxd">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                                 </a>` : 
+                                `<span class="text-[10px] text-lb-gray" title="Not verified on Letterboxd">●</span>`
+                            }
+                        </div>
+                        <div class="col-span-1 text-lb-light mono text-xs">${m.Year}</div>
+                        <div class="col-span-1 text-lb-green font-bold text-xs">
+                            ${m.Rating ? '★ ' + m.Rating : '-'}
+                        </div>
+                        <div class="col-span-2 text-lb-light text-xs">${m.WatchedDate}</div>
+                        <div class="col-span-3 text-xs text-lb-light truncate opacity-60">${m.Tags || ''}</div>
+                        <div class="col-span-1 text-right">
+                            <button onclick="deleteMovie(${m.id})" class="text-lb-gray hover:text-red-500 transition px-2">✕</button>
+                        </div>
+                    </div>
+
+                    <!-- Mobile Card -->
+                    <div class="md:hidden mobile-card relative">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="pr-6">
+                                <div class="font-bold text-white text-base leading-tight flex items-center gap-2">
+                                    ${m.Title}
+                                    ${m.LetterboxdSlug ? 
+                                        `<a href="https://letterboxd.com/film/${m.LetterboxdSlug}" target="_blank" class="text-lb-blue hover:text-white" title="View">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                                        </a>` : ''
+                                    }
+                                </div>
+                                <div class="text-xs text-lb-light mt-1 mono">${m.Year} • <span class="text-lb-green font-bold">★ ${m.Rating || '0'}</span></div>
+                            </div>
+                            <button onclick="deleteMovie(${m.id})" class="absolute top-3 right-3 text-lb-gray hover:text-red-500 p-1">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div class="flex justify-between items-end mt-3">
+                            <div class="text-[10px] uppercase font-bold text-lb-gray bg-lb-darker px-2 py-1 rounded border border-lb-gray/30">
+                                ${m.WatchedDate}
+                            </div>
+                            ${m.Tags ? `<div class="text-[10px] text-lb-light truncate max-w-[150px] italic opacity-70">${m.Tags}</div>` : ''}
+                        </div>
+                    </div>
+
+                </div>
+            `).join('');
+        }
+
+        // --- FORM HANDLING ---
+        document.getElementById('logForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('title').value;
+            if(!title) return showToast('Title is required', 'error');
+
+            addMovie({
+                Title: title,
+                Year: document.getElementById('year').value,
+                Rating: document.getElementById('rating').value,
+                WatchedDate: document.getElementById('date').value,
+                Review: document.getElementById('review').value,
+                Tags: document.getElementById('tags').value,
+                LetterboxdSlug: document.getElementById('lbSlug').value 
+            });
+
+            e.target.reset();
+            document.getElementById('lbSlug').value = ''; 
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('title').focus();
+            showToast('Movie added successfully');
+        });
+
+        // --- SERVERLESS API LOGIC (VERCEL) ---
+        
+        async function callGemini(prompt) {
+            // Kita panggil API lokal di /api/gemini
+            try {
+                const response = await fetch('/api/gemini', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                return data; // Ini sudah berupa JSON hasil parsing dari server
+            } catch (error) {
+                console.error("Fetch error:", error);
+                throw error;
+            }
+        }
+
+        async function fetchSingleMovie() {
+            const query = document.getElementById('title').value;
+            if (!query) return showToast('Enter a title first', 'error');
+
+            const btn = document.activeElement;
+            const originalText = btn.innerText;
+            btn.innerText = '...';
+            
+            try {
+                const prompt = `Identify movie/show "${query}". Verify if it exists on Letterboxd. 
+                JSON only: {
+                    "Title": "Official Title", 
+                    "Year": "YYYY", 
+                    "Tags": "genre1, genre2", 
+                    "LetterboxdSlug": "slug-url-part-only-if-exists-else-null"
+                }.`;
+                
+                const data = await callGemini(prompt); // Tidak butuh API key di parameter
+                
+                if(data) {
+                    document.getElementById('title').value = data.Title;
+                    document.getElementById('year').value = data.Year;
+                    document.getElementById('tags').value = data.Tags;
+                    
+                    if(data.LetterboxdSlug) {
+                        document.getElementById('lbSlug').value = data.LetterboxdSlug;
+                        showToast(`Found: ${data.Title} (Verified)`);
+                    } else {
+                        document.getElementById('lbSlug').value = '';
+                        showToast(`Found: ${data.Title} (Not on LB?)`, 'error');
+                    }
+                } else {
+                    showToast('AI could not find movie', 'error');
+                }
+            } catch(e) {
+                showToast('API Error (Check Vercel Logs)', 'error');
+            } finally {
+                btn.innerText = originalText;
+            }
+        }
+
+        async function processSmartBulk() {
+            const text = document.getElementById('bulkInput').value;
+            const date = document.getElementById('bulkDate').value;
+            
+            if (!text.trim()) return showToast('Input is empty', 'error');
+
+            const loader = document.getElementById('loader');
+            loader.classList.remove('hidden');
+            loader.classList.add('flex');
+
+            try {
+                const systemPrompt = `
+                    You are a Letterboxd Data Engineer.
+                    Input: "${text}"
+                    Date Context: ${date}
+                    Task: Convert input into a JSON Array of objects.
+                    Strict Rules:
+                    1. Split seasons into separate entries.
+                    2. "Year" must be the release year.
+                    3. "Rating" must be 0-5 scale.
+                    4. "Tags" should include 2-3 genres.
+                    5. "LetterboxdSlug": Verify existence. Provide the Letterboxd URL slug (e.g., 'dune-part-two'). If unsure, use null.
+                    6. Output JSON ONLY. No markdown.
+                    
+                    Schema: [{"Title": string, "Year": string, "Rating": number, "Tags": string, "LetterboxdSlug": string}]
+                `;
+
+                const data = await callGemini(systemPrompt); // Tidak butuh API key di parameter
+
+                if (Array.isArray(data)) {
+                    data.forEach(item => {
+                        addMovie({
+                            Title: item.Title,
+                            Year: item.Year,
+                            Rating: item.Rating,
+                            WatchedDate: date,
+                            Review: '',
+                            Tags: item.Tags,
+                            LetterboxdSlug: item.LetterboxdSlug
+                        });
+                    });
+                    document.getElementById('bulkInput').value = '';
+                    showToast(`Successfully processed ${data.length} items!`);
+                } else {
+                    showToast('AI returned invalid format', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('AI processing failed', 'error');
+            } finally {
+                loader.classList.add('hidden');
+                loader.classList.remove('flex');
+            }
+        }
+
+        // --- EXPORT LOGIC (PROFESSIONAL) ---
+        function downloadCSV() {
+            if (movies.length === 0) return showToast('Nothing to export', 'error');
+
+            const headers = ['Title', 'Year', 'Rating10', 'WatchedDate', 'Review', 'Tags'];
+            
+            const csvContent = movies.map(m => {
+                const safe = (val) => `"${String(val || '').replace(/"/g, '""')}"`;
+                return [
+                    safe(m.Title),
+                    safe(m.Year),
+                    m.Rating || '', 
+                    safe(m.WatchedDate),
+                    safe(m.Review),
+                    safe(m.Tags)
+                ].join(',');
+            });
+
+            const finalHeaders = ['Title', 'Year', 'Rating', 'WatchedDate', 'Review', 'Tags'];
+            csvContent.unshift(finalHeaders.join(','));
+
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const fileName = `letterboxd-import-${year}-${month}-${day}.csv`;
+
+            const blob = new Blob([csvContent.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showToast('CSV Exported: ' + fileName);
+        }
+    </script>
+</body>
+</html>
