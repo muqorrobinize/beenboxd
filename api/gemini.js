@@ -1,14 +1,13 @@
 export default async function handler(req, res) {
-  // Hanya izinkan method POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Ambil API KEY dari Environment Variable server Vercel
+  // Gunakan 1 Key Resmi di Server Environment
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
-    return res.status(500).json({ error: 'Server configuration error: Missing API Key' });
+    return res.status(500).json({ error: 'Server Config Error: Missing API Key' });
   }
 
   const { prompt } = req.body;
@@ -28,20 +27,25 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    // Parsing sederhana untuk mengambil teks JSON bersih
+    // Jika error dari Google (misal Limit Habis / 429), teruskan statusnya ke Frontend
+    if (!response.ok) {
+      console.error('Gemini API Error:', data);
+      return res.status(response.status).json({ 
+        error: data.error?.message || 'Upstream API Error' 
+      });
+    }
+
+    // Parsing Response
     if (data.candidates && data.candidates[0].content) {
       let text = data.candidates[0].content.parts[0].text;
-      // Bersihkan markdown block jika ada
       text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      
-      // Kirim balik sebagai JSON object
       return res.status(200).json(JSON.parse(text));
     } else {
-      return res.status(500).json({ error: 'Invalid response from AI provider' });
+      return res.status(500).json({ error: 'Invalid AI response format' });
     }
 
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('Internal Server Error:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
